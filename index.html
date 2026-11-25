@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="Danish Mart 3D — Nepal's first immersive virtual supermarket. Walk the aisles, pick products, and shop in a stunning 3D environment." />
+  <meta name="theme-color" content="#00ff88" />
+  <title>DANISH MART 3D — Biopunk Virtual Supermarket</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Biopunk fonts: Syne (headings) + Space Grotesk (body) + keep Inter as fallback -->
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+<!-- ============================================================
+     CUSTOM CURSOR (biopunk — hidden on touch via CSS)
+============================================================ -->
+<div id="bio-cursor"></div>
+<div id="bio-cursor-ring"></div>
+
+<!-- ============================================================
+     WELCOME SCREEN
+============================================================ -->
+<div id="welcome-screen">
+  <div class="bg-particles" id="bg-particles"></div>
+  <!-- SVG organism injected here by effect.js -->
+
+  <div class="logo-container">
+    <!-- data-text drives the CSS glitch ::before/::after -->
+    <div class="logo-icon">🏪</div>
+    <div class="logo-text" data-text="DANISH MART 3D">DANISH MART 3D</div>
+    <div class="logo-sub">Biopunk Virtual Supermarket</div>
+    <div class="logo-tagline">Nepal's First Living 3D Store — Enter if you dare</div>
+
+    <!-- Live visitor counter -->
+    <div class="live-indicator">
+      <span class="live-dot"></span>
+      <span><span id="live-count">2,847</span> shoppers online now</span>
+    </div>
+
+    <div class="welcome-features">
+      <div class="feature-pill"><span>🧬</span><span>Living 3D World</span></div>
+      <div class="feature-pill"><span>🚶</span><span>First-Person Walk</span></div>
+      <div class="feature-pill"><span>🛒</span><span>48 Products</span></div>
+      <div class="feature-pill"><span>⚡</span><span>WebGL Powered</span></div>
+      <div class="feature-pill"><span>📱</span><span>Mobile Ready</span></div>
+    </div>
+
+    <button class="btn-enter" id="btn-enter">
+      <div class="btn-shimmer"></div>
+      ⬡ Enter the Store
+    </button>
+
+    <div class="welcome-controls-hint">
+      Desktop: WASD · Mouse · Click &nbsp;|&nbsp; Mobile: Joystick · Drag · Tap
+    </div>
+  </div>
+
+  <!-- Nepal flag accent ribbon -->
+  <div class="nepal-ribbon">
+    <span class="flag">🇳🇵</span>
+    <span>Made in Nepal &nbsp;·&nbsp; नेपालको पहिलो 3D सुपरमार्केट</span>
+  </div>
+</div>
+
+<!-- ============================================================
+     LOADING OVERLAY
+============================================================ -->
+<div id="loading-overlay">
+  <div class="loading-logo">🧬</div>
+  <div class="loading-text">Synthesising Your Supermarket...</div>
+  <div class="loading-sub">GROWING 3D CELLS · SPAWNING PRODUCTS · CHARGING LIGHTS</div>
+  <div class="loading-bar-wrap">
+    <!-- DNA helix canvas injected by effect.js — fallback bar stays as backup -->
+    <div class="loading-bar" id="loading-bar"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     2D FALLBACK MODE
+============================================================ -->
+<div id="fallback-mode">
+  <div class="fallback-header">
+    <div class="fallback-logo">🏪 DANISH MART 3D</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-shrink:0">
+      <span class="fallback-badge">2D CATALOG MODE</span>
+      <button id="cart-btn-fallback" class="hud-btn cart-btn" style="pointer-events:all">
+        🛒 <span id="cart-count-fallback">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Category filter bar — populated statically so it works before JS -->
+  <div class="category-filter-bar" id="category-filter-bar">
+    <button class="cat-tab active" data-aisle="all">🏪 All</button>
+    <button class="cat-tab" data-aisle="1">🥦 Fruits &amp; Veg</button>
+    <button class="cat-tab" data-aisle="2">🥛 Dairy</button>
+    <button class="cat-tab" data-aisle="3">🍿 Snacks</button>
+    <button class="cat-tab" data-aisle="4">🥤 Beverages</button>
+    <button class="cat-tab" data-aisle="5">🌾 Grains</button>
+    <button class="cat-tab" data-aisle="6">🧺 Household</button>
+  </div>
+
+  <div class="fallback-content" id="fallback-content"></div>
+</div>
+
+<!-- ============================================================
+     MAIN APP
+============================================================ -->
+<div id="app">
+
+  <!-- 3D Canvas -->
+  <div id="canvas-container">
+    <canvas id="three-canvas"></canvas>
+  </div>
+
+  <!-- TOP HUD -->
+  <div id="top-hud">
+    <div class="hud-logo" onclick="showWelcome()">
+      DANISH MART 3D
+      <span>VIRTUAL SUPERMARKET</span>
+    </div>
+
+    <div class="hud-center">
+      <div class="search-wrap">
+        <input
+          type="text"
+          id="search-input"
+          class="search-input"
+          placeholder="Search products..."
+          autocomplete="off"
+        />
+        <button id="search-btn" class="search-btn">🔍</button>
+      </div>
+    </div>
+
+    <div class="hud-actions">
+      <button class="hud-btn" id="btn-directory">
+        🗺️ <span>Aisles</span>
+      </button>
+      <button class="hud-btn cart-btn" id="btn-cart">
+        🛒 <span>Trolley</span>
+        <span class="cart-count" id="cart-count">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- AISLE INDICATOR -->
+  <div id="aisle-indicator"></div>
+
+  <!-- SEARCH RESULTS -->
+  <div id="search-results"></div>
+
+  <!-- STORE DIRECTORY (left side) -->
+  <div id="store-directory"></div>
+
+  <!-- CROSSHAIR -->
+  <div id="crosshair">
+    <div class="crosshair-ring">
+      <div class="crosshair-dot"></div>
+    </div>
+  </div>
+
+  <!-- INTERACT HINT -->
+  <div id="interact-hint">👆 Click to view product</div>
+
+  <!-- PRODUCT PANEL (right slide-in) -->
+  <div id="product-panel">
+    <div class="panel-header">
+      <div class="panel-emoji" id="panel-emoji">🍎</div>
+      <button class="panel-close">✕</button>
+    </div>
+    <div class="panel-body">
+      <div class="panel-aisle" id="panel-aisle">AISLE 01 — FRUITS & VEGETABLES</div>
+      <div class="panel-name" id="panel-name">Fresh Red Apples</div>
+      <div class="panel-desc" id="panel-desc">Crisp and sweet red apples, freshly stocked.</div>
+      <div class="panel-info-row">
+        <span class="info-badge unit" id="panel-unit">1 kg</span>
+        <span class="info-badge stock-ok" id="panel-stock">In Stock</span>
+      </div>
+      <div class="panel-price" id="panel-price"><span>Rs.</span>180</div>
+      <div class="panel-qty-row">
+        <span class="qty-label">Qty:</span>
+        <div class="qty-controls">
+          <button class="qty-btn" id="qty-minus">−</button>
+          <span class="qty-value" id="qty-display">1</span>
+          <button class="qty-btn" id="qty-plus">+</button>
+        </div>
+      </div>
+      <button class="btn-add-cart" id="btn-add-cart">
+        🛒 Add to Trolley — Rs.180
+      </button>
+    </div>
+  </div>
+
+  <!-- CART PANEL (right side) -->
+  <div id="cart-panel">
+    <div class="cart-header">
+      <div class="cart-title">
+        <span class="cart-title-icon">🛒</span>
+        My Trolley
+        (<span id="cart-count-2">0</span>)
+      </div>
+      <div class="cart-header-actions">
+        <button class="cart-clear-btn" id="cart-clear-btn">Clear all</button>
+        <button class="cart-close">✕</button>
+      </div>
+    </div>
+    <div class="cart-items-list" id="cart-items-list">
+      <div class="cart-empty">
+        <div class="cart-empty-icon">🛒</div>
+        <div class="cart-empty-text">Your trolley is empty.<br>Start exploring the store!</div>
+      </div>
+    </div>
+    <div class="cart-footer">
+      <div class="cart-summary">
+        <div class="cart-summary-row">
+          <span>Subtotal</span>
+          <span id="cart-subtotal">Rs.0</span>
+        </div>
+        <div class="cart-summary-row">
+          <span>Delivery</span>
+          <span id="cart-delivery">Rs.0</span>
+        </div>
+        <div class="cart-total-row">
+          <span>Total</span>
+          <span class="cart-total-amount" id="cart-total">Rs.0</span>
+        </div>
+      </div>
+      <button class="btn-checkout">
+        💳 Checkout
+      </button>
+    </div>
+  </div>
+
+  <!-- BOTTOM HUD -->
+  <div id="bottom-hud">
+    <div class="hud-tip">
+      <strong>WASD</strong> Walk &nbsp;·&nbsp;
+      <strong>Mouse</strong> Look &nbsp;·&nbsp;
+      <strong>Click</strong> Select &nbsp;·&nbsp;
+      <strong>C</strong> Cart &nbsp;·&nbsp;
+      <strong>F</strong> Full &nbsp;·&nbsp;
+      <strong>H</strong> Help
+    </div>
+    <button id="pointer-lock-btn" class="show">
+      🖱️ Click to Walk
+    </button>
+  </div>
+
+  <!-- MINI MAP -->
+  <div id="mini-map">
+    <div class="map-title">STORE MAP</div>
+    <canvas id="map-canvas" width="120" height="100"></canvas>
+  </div>
+
+  <!-- MOBILE CONTROLS -->
+  <div id="mobile-controls">
+    <div id="joystick-zone">
+      <div id="joystick-base">
+        <div id="joystick-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right-side mobile look zone -->
+  <div id="mobile-look-area"></div>
+
+</div>
+
+<!-- ============================================================
+     CHECKOUT MODAL
+============================================================ -->
+<div id="checkout-modal">
+  <div class="checkout-box">
+    <div class="checkout-header">
+      <div class="checkout-title">🏪 Checkout — Danish Mart 3D</div>
+      <button class="checkout-close">✕</button>
+    </div>
+    <div class="checkout-body">
+      <div class="checkout-demo-badge">
+        ⚠️ DEMO MODE — No real payment will be processed. Order is simulated only.
+      </div>
+
+      <div class="checkout-order-summary">
+        <div class="order-summary-title">Order Summary</div>
+        <div id="checkout-items"></div>
+        <div class="order-item-row" style="margin-top:8px">
+          <span>Subtotal</span>
+          <span id="checkout-subtotal">Rs.0</span>
+        </div>
+        <div class="order-item-row">
+          <span>Delivery Fee</span>
+          <span id="checkout-delivery">Rs.100</span>
+        </div>
+        <div class="order-total-row">
+          <span>Total</span>
+          <span class="order-amount" id="checkout-total">Rs.0</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input id="checkout-name" class="form-input" type="text" placeholder="e.g. Ram Prasad Sharma" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nepal Phone Number</label>
+        <input id="checkout-phone" class="form-input" type="tel" placeholder="e.g. 9812345678" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Delivery Address</label>
+        <input id="checkout-address" class="form-input" type="text" placeholder="e.g. Kathmandu, Thamel, Ward 26" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Payment Method</label>
+        <div class="payment-method">
+          <div class="payment-radio"><div class="payment-radio-inner"></div></div>
+          <div>
+            <div class="payment-label">💵 Cash on Delivery</div>
+            <div class="payment-sub">Pay when your order arrives</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-place-order" id="btn-place-order">
+        🚀 Place Demo Order
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     ORDER CONFIRMATION
+============================================================ -->
+<div id="order-confirm">
+  <div class="confirm-box">
+    <div class="confirm-icon">🎉</div>
+    <div class="confirm-title">Order Placed!</div>
+    <div class="confirm-sub">
+      Thank you for shopping at <strong>Danish Mart 3D</strong>!<br>
+      This is a <strong>demo order</strong> — no real delivery or payment occurs.<br>
+      Your total: <strong id="confirm-total">Rs.0</strong>
+    </div>
+    <div class="confirm-order-id" id="confirm-order-id">Order ID: DM-XXXXXX</div>
+    <button class="btn-continue-shopping" id="btn-continue-shopping">
+      🛒 Continue Shopping
+    </button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast-container"></div>
+
+<!-- ============================================================
+     MAIN JS — ES Modules
+============================================================ -->
+<script type="module">
+  import { SupermarketScene } from './js/scene.js';
+  import { CartManager } from './js/cart.js';
+  import { UIManager } from './js/ui.js';
+  import { PRODUCT_MAP, AISLES } from './js/products.js';
+
+  // ── Detect WebGL support ────────────────────────────────────────────────────
+  function hasWebGL() {
+    try {
+      const canvas = document.createElement('canvas');
+      return !!(
+        window.WebGLRenderingContext &&
+        (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+      );
+    } catch { return false; }
+  }
+
+  // ── Generate particles ──────────────────────────────────────────────────────
+  function createParticles() {
+    const container = document.getElementById('bg-particles');
+    // Biopunk palette: neon green, cyan, amber, purple — same as CSS vars
+    const colors = ['#00ff88', '#00e5ff', '#ffb800', '#b44dff', '#00cc66', '#a0ffd6'];
+    for (let i = 0; i < 28; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const size = 3 + Math.random() * 10;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      p.style.cssText = `
+        width:${size}px; height:${size}px;
+        left:${Math.random() * 100}%;
+        background:${color};
+        box-shadow:0 0 ${size * 2}px ${color};
+        animation-duration:${8 + Math.random() * 10}s;
+        animation-delay:${Math.random() * 7}s;
+      `;
+      container.appendChild(p);
+    }
+  }
+
+  // ── State ───────────────────────────────────────────────────────────────────
+  let scene = null;
+  let ui = null;
+  const cart = new CartManager();
+
+  // ── Init welcome screen ─────────────────────────────────────────────────────
+  createParticles();
+
+  document.getElementById('btn-enter').addEventListener('click', () => {
+    enterSupermarket();
+  });
+
+  function enterSupermarket() {
+    if (!hasWebGL()) {
+      // Fallback mode — UIManager constructor calls setupFallbackMode() internally
+      document.getElementById('welcome-screen').style.display = 'none';
+      document.getElementById('fallback-mode').classList.add('show');
+      new UIManager(new CartManager(), null);
+      return;
+    }
+
+    // Show loading
+    const welcome = document.getElementById('welcome-screen');
+    const loading = document.getElementById('loading-overlay');
+    welcome.style.opacity = '0';
+    welcome.style.transition = 'opacity 0.5s';
+    setTimeout(() => {
+      welcome.style.display = 'none';
+      loading.classList.add('show');
+    }, 500);
+
+    // Init 3D scene
+    setTimeout(() => {
+      try {
+        const canvas = document.getElementById('three-canvas');
+        scene = new SupermarketScene(canvas, cart, (productId) => {
+          ui.openProductPanel(productId);
+        });
+
+        ui = new UIManager(cart, scene);
+
+        document.getElementById('app').classList.add('show');
+        loading.classList.remove('show');
+
+        // Show initial hint
+        setTimeout(() => {
+          const pBtn = document.getElementById('pointer-lock-btn');
+          pBtn.classList.add('show');
+        }, 500);
+
+        // Auto-show directory on desktop (matches CSS 800px breakpoint)
+        if (window.innerWidth > 800) {
+          setTimeout(() => {
+            document.getElementById('store-directory').classList.add('show');
+          }, 1000);
+        }
+
+      } catch (err) {
+        console.error('3D init failed:', err);
+        loading.classList.remove('show');
+        document.getElementById('fallback-mode').classList.add('show');
+        ui = new UIManager(cart, null);
+      }
+    }, 200);
+  }
+
+  // ── Show welcome again ──────────────────────────────────────────────────────
+  window.showWelcome = function() {
+    document.getElementById('app').classList.remove('show');
+    document.getElementById('welcome-screen').style.display = 'flex';
+    document.getElementById('welcome-screen').style.opacity = '1';
+    document.exitPointerLock?.();
+  };
+
+  // ── Button: directory ───────────────────────────────────────────────────────
+  // (Handled inside UIManager.setupDirectory)
+
+  // ── Button: cart ────────────────────────────────────────────────────────────
+  // (Handled inside UIManager.setupCartUI)
+
+  // ── Keyboard shortcut for cart (C) ──────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.code === 'KeyC' && !document.pointerLockElement) {
+      if (ui) ui.toggleCart();
+    }
+    if (e.code === 'KeyM') {
+      document.getElementById('store-directory').classList.toggle('show');
+    }
+  });
+
+  // ── Handle orientation change ────────────────────────────────────────────────
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      if (scene) {
+        scene.renderer.setSize(window.innerWidth, window.innerHeight);
+        scene.camera.aspect = window.innerWidth / window.innerHeight;
+        scene.camera.updateProjectionMatrix();
+      }
+    }, 300);
+  });
+
+  // ── Keyboard shortcut: press F to enter fullscreen ───────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.code === 'KeyF') {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    }
+  });
+
+  // ── Feed player speed to effect.js HUD reactor ───────────────────────────────
+  // scene.js sets this via its _updateMovement; we poll it here each frame.
+  (function speedPoller() {
+    let lastPos = null;
+    function poll() {
+      if (scene && scene.camera) {
+        const p = scene.camera.position;
+        if (lastPos) {
+          const dx = p.x - lastPos.x;
+          const dz = p.z - lastPos.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          // Normalise: walking speed ~6 units/s, 60fps → ~0.1 units/frame
+          window.__playerSpeed = Math.min(dist / 0.12, 1);
+        }
+        lastPos = { x: p.x, z: p.z };
+      } else {
+        window.__playerSpeed = 0;
+      }
+      requestAnimationFrame(poll);
+    }
+    requestAnimationFrame(poll);
+  })();
+</script>
+
+<!-- Biopunk effect layer — vanilla JS, no imports, runs after DOM ready -->
+<script src="js/effect.js"></script>
+
+</body>
+</html>
